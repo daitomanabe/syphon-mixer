@@ -88,10 +88,7 @@ final class ControlPanelController: NSObject {
         } else {
             displayPopUp.selectItem(at: 0)
         }
-        fullscreenButton.isEnabled = canFullscreen
-        if !canFullscreen {
-            fullscreenButton.state = .off
-        }
+        fullscreenButton.isEnabled = true
         displayStatusLabel.stringValue = status
         isUpdating = false
     }

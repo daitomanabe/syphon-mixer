@@ -18,7 +18,8 @@ final class OutputWindowController {
     private let outputView: MTKView
     private var outputWindow: NSWindow?
     private var selectedDisplayID: CGDirectDisplayID?
-    private var fullscreenEnabled = false
+    private var fullscreenRequested = false
+    private var hasPresentedOutputWindow = false
 
     init(outputView: MTKView) {
         self.outputView = outputView
@@ -36,7 +37,7 @@ final class OutputWindowController {
     }
 
     var isFullscreenEnabled: Bool {
-        fullscreenEnabled
+        fullscreenRequested
     }
 
     var canFullscreen: Bool {
@@ -60,56 +61,61 @@ final class OutputWindowController {
         let validIDs = Set(externalScreens().compactMap { Self.displayID(for: $0) })
         selectedDisplayID = id.flatMap { validIDs.contains($0) ? $0 : nil }
         selectFallbackDisplayIfNeeded()
-        if fullscreenEnabled {
+        if fullscreenRequested {
             rebuildWindow()
         }
     }
 
     func setFullscreenEnabled(_ enabled: Bool) {
-        fullscreenEnabled = enabled && selectedExternalScreen() != nil
+        fullscreenRequested = enabled
         rebuildWindow()
     }
 
     func showPreview() {
-        fullscreenEnabled = false
+        fullscreenRequested = false
         rebuildWindow()
     }
 
     func displayStatus() -> String {
         let options = displayOptions()
         guard !options.isEmpty else {
-            return "main preview, no external display"
+            return fullscreenRequested ? "fullscreen requested, no external display" : "main preview, no external display"
         }
 
         let target = options.first(where: { $0.id == selectedDisplayID })?.label ?? options[0].label
-        return fullscreenEnabled ? "fullscreen \(target)" : "main preview, target \(target)"
+        return fullscreenRequested ? "fullscreen \(target)" : "main preview, target \(target)"
     }
 
     private func rebuildWindow() {
-        let screen = fullscreenEnabled ? selectedExternalScreen() : nil
+        let screen = fullscreenRequested ? selectedExternalScreen() : nil
         let targetScreen = screen ?? primaryScreen()
-        let frame = screen?.frame ?? Self.previewFrame(on: targetScreen)
+        let contentRect = screen?.frame ?? Self.previewFrame(on: targetScreen)
         let styleMask: NSWindow.StyleMask = screen == nil ? [.titled, .miniaturizable, .resizable] : [.borderless]
-
-        outputWindow?.contentView = nil
-        outputWindow?.orderOut(nil)
 
         outputView.removeFromSuperview()
         outputView.translatesAutoresizingMaskIntoConstraints = true
-        outputView.frame = NSRect(origin: .zero, size: frame.size)
+        outputView.frame = NSRect(origin: .zero, size: contentRect.size)
         outputView.autoresizingMask = [.width, .height]
         outputView.drawableSize = CGSize(
-            width: frame.width * targetScreen.backingScaleFactor,
-            height: frame.height * targetScreen.backingScaleFactor
+            width: contentRect.width * targetScreen.backingScaleFactor,
+            height: contentRect.height * targetScreen.backingScaleFactor
         )
 
-        let window = OutputWindow(
-            contentRect: frame,
-            styleMask: styleMask,
-            backing: .buffered,
-            defer: false,
-            screen: targetScreen
-        )
+        let window: OutputWindow
+        if let existingWindow = outputWindow as? OutputWindow {
+            window = existingWindow
+            window.styleMask = styleMask
+        } else {
+            window = OutputWindow(
+                contentRect: contentRect,
+                styleMask: styleMask,
+                backing: .buffered,
+                defer: false,
+                screen: targetScreen
+            )
+            outputWindow = window
+        }
+
         window.title = "Syphon Mixer Output"
         window.isReleasedWhenClosed = false
         window.isOpaque = true
@@ -118,11 +124,13 @@ final class OutputWindowController {
         window.collectionBehavior = screen == nil ? [] : [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.backgroundColor = .black
         window.contentView = outputView
-        window.orderFront(nil)
-        if screen != nil {
-            window.setFrame(frame, display: true)
+
+        let frame = window.frameRect(forContentRect: contentRect)
+        window.setFrame(frame, display: true)
+        if !hasPresentedOutputWindow {
+            window.orderBack(nil)
+            hasPresentedOutputWindow = true
         }
-        outputWindow = window
     }
 
     private func selectedExternalScreen() -> NSScreen? {
@@ -152,15 +160,10 @@ final class OutputWindowController {
         }
 
         selectedDisplayID = screens.compactMap { Self.displayID(for: $0) }.first
-        if selectedDisplayID == nil {
-            fullscreenEnabled = false
-        }
     }
 
     @objc private func screenParametersChanged() {
-        if fullscreenEnabled && selectedExternalScreen() == nil {
-            fullscreenEnabled = false
-        }
+        selectFallbackDisplayIfNeeded()
         rebuildWindow()
         onScreensChanged?()
     }
