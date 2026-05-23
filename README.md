@@ -5,12 +5,17 @@ Native macOS Syphon mixer for four live input servers.
 ## Current Scope
 
 - 4 Syphon input channels using `SyphonMetalClient`
-- Per-channel source selector, fader, and scale mode
+- Per-channel source selector, on/off switch, fader, and scale mode
+- Additive RGB compositing controlled by each channel fader
 - Output texture size control
 - Automatic fit, fill/crop, or stretch mapping to the output texture
 - Final mixed texture published as the `syphon-mixer Output` Syphon server
 - Separate AppKit control window and output window
 - External-display fullscreen routing with main-display preview fallback
+
+Selecting `None` on a channel stops and clears that channel's Syphon client.
+Turning a channel `Off` keeps the selected source in the UI but disconnects the
+client until the channel is turned back on.
 
 ## Build
 

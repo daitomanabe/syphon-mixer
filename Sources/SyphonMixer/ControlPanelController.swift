@@ -3,10 +3,11 @@ import CoreGraphics
 import SyphonMixerCore
 
 final class ControlPanelController: NSObject {
-    let view = NSView(frame: NSRect(x: 0, y: 0, width: 820, height: 420))
+    let view = NSView(frame: NSRect(x: 0, y: 0, width: 960, height: 420))
 
     var onRefreshServers: (() -> Void)?
     var onChannelSourceChanged: ((Int, String?) -> Void)?
+    var onChannelEnabledChanged: ((Int, Bool) -> Void)?
     var onChannelVolumeChanged: ((Int, Float) -> Void)?
     var onChannelScaleModeChanged: ((Int, ScaleMode) -> Void)?
     var onOutputSizeChanged: ((Int, Int) -> Void)?
@@ -15,6 +16,7 @@ final class ControlPanelController: NSObject {
     var onQuit: (() -> Void)?
 
     private var serverPopUps: [NSPopUpButton] = []
+    private var enabledButtons: [NSButton] = []
     private var volumeSliders: [NSSlider] = []
     private var volumeLabels: [NSTextField] = []
     private var modePopUps: [NSPopUpButton] = []
@@ -159,17 +161,24 @@ final class ControlPanelController: NSObject {
         channelLabel.widthAnchor.constraint(equalToConstant: 44).isActive = true
         row.addArrangedSubview(channelLabel)
 
+        let enabledButton = NSButton(checkboxWithTitle: "On", target: self, action: #selector(enabledChanged))
+        enabledButton.state = .on
+        enabledButton.tag = index
+        enabledButton.widthAnchor.constraint(equalToConstant: 56).isActive = true
+        enabledButtons.append(enabledButton)
+        row.addArrangedSubview(enabledButton)
+
         let serverPopUp = NSPopUpButton()
         serverPopUp.target = self
         serverPopUp.action = #selector(serverChanged)
         serverPopUp.tag = index
-        serverPopUp.widthAnchor.constraint(equalToConstant: 270).isActive = true
+        serverPopUp.widthAnchor.constraint(equalToConstant: 250).isActive = true
         serverPopUps.append(serverPopUp)
         row.addArrangedSubview(serverPopUp)
 
         let slider = NSSlider(value: 1.0, minValue: 0.0, maxValue: 1.0, target: self, action: #selector(volumeChanged))
         slider.tag = index
-        slider.widthAnchor.constraint(equalToConstant: 160).isActive = true
+        slider.widthAnchor.constraint(equalToConstant: 130).isActive = true
         volumeSliders.append(slider)
         row.addArrangedSubview(slider)
 
@@ -193,7 +202,7 @@ final class ControlPanelController: NSObject {
 
         let status = NSTextField(labelWithString: "CH\(index + 1): none")
         status.lineBreakMode = .byTruncatingTail
-        status.widthAnchor.constraint(greaterThanOrEqualToConstant: 110).isActive = true
+        status.widthAnchor.constraint(greaterThanOrEqualToConstant: 130).isActive = true
         statusLabels.append(status)
         row.addArrangedSubview(status)
 
@@ -213,6 +222,11 @@ final class ControlPanelController: NSObject {
     @objc private func serverChanged(_ sender: NSPopUpButton) {
         guard !isUpdating else { return }
         onChannelSourceChanged?(sender.tag, sender.selectedItem?.representedObject as? String)
+    }
+
+    @objc private func enabledChanged(_ sender: NSButton) {
+        guard !isUpdating else { return }
+        onChannelEnabledChanged?(sender.tag, sender.state == .on)
     }
 
     @objc private func volumeChanged(_ sender: NSSlider) {

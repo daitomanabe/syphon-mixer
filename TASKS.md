@@ -3,7 +3,8 @@
 ## Done
 
 - Initial native AppKit/Metal Syphon mixer scaffold
-- Four Syphon input channels with source selectors, faders, and scale modes
+- Four Syphon input channels with source selectors, on/off switches, faders, and scale modes
+- Additive compositing for enabled channels
 - Output-size controlled Metal render target
 - Final mixed Syphon server named `syphon-mixer Output`
 - Main-display control window plus preview/external fullscreen output window

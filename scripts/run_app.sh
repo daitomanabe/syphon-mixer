@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SYPHON_FRAMEWORK="${ROOT_DIR}/../Syphon-Framework/build/Release/Syphon.framework"
+SWIFTPM_BUILD_DIR="${TMPDIR:-/tmp}/syphon-mixer-swiftpm-debug"
 
 if [ ! -d "${SYPHON_FRAMEWORK}" ]; then
   echo "Missing Syphon framework: ${SYPHON_FRAMEWORK}" >&2
@@ -10,4 +11,4 @@ if [ ! -d "${SYPHON_FRAMEWORK}" ]; then
 fi
 
 cd "${ROOT_DIR}"
-swift run -Xswiftc -F../Syphon-Framework/build/Release SyphonMixer
+swift run --scratch-path "${SWIFTPM_BUILD_DIR}" -Xswiftc -F../Syphon-Framework/build/Release SyphonMixer

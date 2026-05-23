@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SYPHON_FRAMEWORK="${ROOT_DIR}/../Syphon-Framework/build/Release/Syphon.framework"
 APP_DIR="${ROOT_DIR}/build/Syphon Mixer.app"
 EXECUTABLE="${APP_DIR}/Contents/MacOS/SyphonMixer"
+SWIFTPM_BUILD_DIR="${TMPDIR:-/tmp}/syphon-mixer-swiftpm-release"
 
 if [ ! -d "${SYPHON_FRAMEWORK}" ]; then
   echo "Missing Syphon framework: ${SYPHON_FRAMEWORK}" >&2
@@ -13,11 +14,12 @@ if [ ! -d "${SYPHON_FRAMEWORK}" ]; then
 fi
 
 cd "${ROOT_DIR}"
-swift build -c release -Xswiftc -F../Syphon-Framework/build/Release
+rm -rf "${SWIFTPM_BUILD_DIR}"
+swift build --scratch-path "${SWIFTPM_BUILD_DIR}" -c release -Xswiftc -F../Syphon-Framework/build/Release
 
 rm -rf "${APP_DIR}"
 mkdir -p "${APP_DIR}/Contents/MacOS" "${APP_DIR}/Contents/Frameworks"
-cp ".build/release/SyphonMixer" "${EXECUTABLE}"
+cp "${SWIFTPM_BUILD_DIR}/release/SyphonMixer" "${EXECUTABLE}"
 rsync -a --delete "${SYPHON_FRAMEWORK}" "${APP_DIR}/Contents/Frameworks/"
 cat > "${APP_DIR}/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>

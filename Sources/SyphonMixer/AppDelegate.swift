@@ -54,6 +54,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.onChannelSourceChanged = { [weak self] index, id in
             self?.setChannelSource(index: index, id: id)
         }
+        panel.onChannelEnabledChanged = { [weak self] index, enabled in
+            self?.engine?.setEnabled(channel: index, enabled: enabled)
+            self?.refreshChannelStatuses()
+        }
         panel.onChannelVolumeChanged = { [weak self] index, value in
             self?.engine?.setVolume(channel: index, value: value)
         }
@@ -81,7 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showControlWindow(_ contentView: NSView) {
         let window = NSWindow(
-            contentRect: NSRect(x: 80, y: 80, width: 850, height: 430),
+            contentRect: NSRect(x: 80, y: 80, width: 980, height: 430),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false

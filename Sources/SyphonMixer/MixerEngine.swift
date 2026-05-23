@@ -16,22 +16,29 @@ private struct FragmentUniforms {
 private final class MixerInputChannel {
     var serverID: String?
     var label = "None"
+    var sourceDescription: [String: Any]?
+    var isEnabled = true
     var volume: Float = 1.0
     var scaleMode: ScaleMode = .fillCrop
     var client: SyphonMetalClient?
     var lastSize: MixerSize?
     var lastFrameTime = Date.distantPast
 
-    func stop() {
+    func disconnect() {
         client?.stop()
         client = nil
-        serverID = nil
-        label = "None"
         lastSize = nil
     }
 
+    func clearSource() {
+        disconnect()
+        serverID = nil
+        label = "None"
+        sourceDescription = nil
+    }
+
     deinit {
-        stop()
+        clearSource()
     }
 }
 
@@ -74,10 +81,10 @@ final class MixerEngine: NSObject, MTKViewDelegate {
         pipelineDescriptor.colorAttachments[0].isBlendingEnabled = true
         pipelineDescriptor.colorAttachments[0].rgbBlendOperation = .add
         pipelineDescriptor.colorAttachments[0].alphaBlendOperation = .add
-        pipelineDescriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
-        pipelineDescriptor.colorAttachments[0].sourceAlphaBlendFactor = .sourceAlpha
-        pipelineDescriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
-        pipelineDescriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+        pipelineDescriptor.colorAttachments[0].sourceRGBBlendFactor = .one
+        pipelineDescriptor.colorAttachments[0].sourceAlphaBlendFactor = .one
+        pipelineDescriptor.colorAttachments[0].destinationRGBBlendFactor = .one
+        pipelineDescriptor.colorAttachments[0].destinationAlphaBlendFactor = .one
         pipelineState = try device.makeRenderPipelineState(descriptor: pipelineDescriptor)
 
         let samplerDescriptor = MTLSamplerDescriptor()
@@ -102,7 +109,7 @@ final class MixerEngine: NSObject, MTKViewDelegate {
 
     deinit {
         syphonServer?.stop()
-        channels.forEach { $0.stop() }
+        channels.forEach { $0.clearSource() }
     }
 
     func makeOutputView(frame: NSRect) -> MTKView {
@@ -122,27 +129,34 @@ final class MixerEngine: NSObject, MTKViewDelegate {
     func setSource(channel index: Int, source: SyphonServerInfo?) {
         guard channels.indices.contains(index) else { return }
         let channel = channels[index]
-        channel.client?.stop()
-        channel.client = nil
-        channel.lastSize = nil
-        channel.serverID = source?.id
-        channel.label = source?.displayName ?? "None"
+        channel.disconnect()
 
-        guard let source else { return }
-        let client = SyphonMetalClient(
-            serverDescription: source.description,
-            device: device,
-            options: nil,
-            newFrameHandler: nil
-        )
-        if client.isValid {
-            channel.client = client
+        guard let source else {
+            channel.clearSource()
+            return
         }
+
+        channel.serverID = source.id
+        channel.label = source.displayName
+        channel.sourceDescription = source.description
+        connectChannelIfNeeded(channel)
     }
 
     func setVolume(channel index: Int, value: Float) {
         guard channels.indices.contains(index) else { return }
         channels[index].volume = min(max(value, 0.0), 1.0)
+    }
+
+    func setEnabled(channel index: Int, enabled: Bool) {
+        guard channels.indices.contains(index) else { return }
+        let channel = channels[index]
+        guard channel.isEnabled != enabled else { return }
+        channel.isEnabled = enabled
+        if enabled {
+            connectChannelIfNeeded(channel)
+        } else {
+            channel.disconnect()
+        }
     }
 
     func setScaleMode(channel index: Int, mode: ScaleMode) {
@@ -165,12 +179,33 @@ final class MixerEngine: NSObject, MTKViewDelegate {
 
     func channelStatuses() -> [String] {
         channels.enumerated().map { index, channel in
+            guard channel.isEnabled else {
+                return "CH\(index + 1): off"
+            }
             guard let client = channel.client else {
                 return "CH\(index + 1): none"
             }
             let valid = client.isValid ? "valid" : "lost"
             let size = channel.lastSize.map { "\(Int($0.width))x\(Int($0.height))" } ?? "waiting"
             return "CH\(index + 1): \(valid), \(size)"
+        }
+    }
+
+    private func connectChannelIfNeeded(_ channel: MixerInputChannel) {
+        guard channel.isEnabled,
+              channel.client == nil,
+              let description = channel.sourceDescription else {
+            return
+        }
+
+        let client = SyphonMetalClient(
+            serverDescription: description,
+            device: device,
+            options: nil,
+            newFrameHandler: nil
+        )
+        if client.isValid {
+            channel.client = client
         }
     }
 
@@ -233,7 +268,8 @@ final class MixerEngine: NSObject, MTKViewDelegate {
 
         let outputSize = MixerSize(width: Double(outputWidth), height: Double(outputHeight))
         for channel in channels {
-            guard channel.volume > 0.0,
+            guard channel.isEnabled,
+                  channel.volume > 0.0,
                   let client = channel.client,
                   client.isValid,
                   let sourceTexture = client.newFrameImage() else {
@@ -328,9 +364,7 @@ final class MixerEngine: NSObject, MTKViewDelegate {
                                    sampler sourceSampler [[sampler(0)]],
                                    constant FragmentUniforms &uniforms [[buffer(0)]]) {
         float4 color = sourceTexture.sample(sourceSampler, in.uv);
-        color.a *= uniforms.alpha;
-        color.rgb *= uniforms.alpha;
-        return color;
+        return float4(color.rgb * uniforms.alpha, 1.0);
     }
     """
 }
