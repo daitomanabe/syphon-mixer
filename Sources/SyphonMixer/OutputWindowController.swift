@@ -2,6 +2,16 @@ import AppKit
 import CoreGraphics
 import MetalKit
 
+private final class OutputWindow: NSWindow {
+    override var canBecomeKey: Bool {
+        false
+    }
+
+    override var canBecomeMain: Bool {
+        false
+    }
+}
+
 final class OutputWindowController {
     var onScreensChanged: (() -> Void)?
 
@@ -93,7 +103,7 @@ final class OutputWindowController {
             height: frame.height * targetScreen.backingScaleFactor
         )
 
-        let window = NSWindow(
+        let window = OutputWindow(
             contentRect: frame,
             styleMask: styleMask,
             backing: .buffered,
@@ -104,14 +114,13 @@ final class OutputWindowController {
         window.isReleasedWhenClosed = false
         window.isOpaque = true
         window.hasShadow = screen == nil
-        window.level = screen == nil ? .normal : .screenSaver
+        window.level = .normal
         window.collectionBehavior = screen == nil ? [] : [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.backgroundColor = .black
         window.contentView = outputView
-        window.makeKeyAndOrderFront(nil)
+        window.orderFront(nil)
         if screen != nil {
             window.setFrame(frame, display: true)
-            window.orderFrontRegardless()
         }
         outputWindow = window
     }
