@@ -77,26 +77,42 @@ final class OutputWindowController {
 
     private func rebuildWindow() {
         let screen = fullscreenEnabled ? selectedExternalScreen() : nil
-        let frame = screen?.frame ?? Self.previewFrame(on: primaryScreen())
+        let targetScreen = screen ?? primaryScreen()
+        let frame = screen?.frame ?? Self.previewFrame(on: targetScreen)
         let styleMask: NSWindow.StyleMask = screen == nil ? [.titled, .miniaturizable, .resizable] : [.borderless]
 
         outputWindow?.contentView = nil
         outputWindow?.orderOut(nil)
+
+        outputView.removeFromSuperview()
+        outputView.translatesAutoresizingMaskIntoConstraints = true
+        outputView.frame = NSRect(origin: .zero, size: frame.size)
+        outputView.autoresizingMask = [.width, .height]
+        outputView.drawableSize = CGSize(
+            width: frame.width * targetScreen.backingScaleFactor,
+            height: frame.height * targetScreen.backingScaleFactor
+        )
 
         let window = NSWindow(
             contentRect: frame,
             styleMask: styleMask,
             backing: .buffered,
             defer: false,
-            screen: screen ?? primaryScreen()
+            screen: targetScreen
         )
         window.title = "Syphon Mixer Output"
-        window.contentView = outputView
         window.isReleasedWhenClosed = false
+        window.isOpaque = true
+        window.hasShadow = screen == nil
         window.level = screen == nil ? .normal : .screenSaver
         window.collectionBehavior = screen == nil ? [] : [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.backgroundColor = .black
+        window.contentView = outputView
         window.makeKeyAndOrderFront(nil)
+        if screen != nil {
+            window.setFrame(frame, display: true)
+            window.orderFrontRegardless()
+        }
         outputWindow = window
     }
 
