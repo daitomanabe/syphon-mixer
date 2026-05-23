@@ -3,6 +3,8 @@ import CoreGraphics
 import MetalKit
 
 final class OutputWindowController {
+    var onScreensChanged: (() -> Void)?
+
     private let outputView: MTKView
     private var outputWindow: NSWindow?
     private var selectedDisplayID: CGDirectDisplayID?
@@ -27,15 +29,27 @@ final class OutputWindowController {
         fullscreenEnabled
     }
 
+    var canFullscreen: Bool {
+        !displayOptions().isEmpty
+    }
+
+    var currentSelectedDisplayID: CGDirectDisplayID? {
+        selectFallbackDisplayIfNeeded()
+        return selectedDisplayID
+    }
+
     func displayOptions() -> [(id: CGDirectDisplayID, label: String)] {
-        externalScreens().compactMap { screen in
+        selectFallbackDisplayIfNeeded()
+        return externalScreens().enumerated().compactMap { index, screen in
             guard let id = Self.displayID(for: screen) else { return nil }
-            return (id, Self.label(for: screen, id: id))
+            return (id, Self.label(for: screen, id: id, externalIndex: index))
         }
     }
 
     func setSelectedDisplayID(_ id: CGDirectDisplayID?) {
-        selectedDisplayID = id
+        let validIDs = Set(externalScreens().compactMap { Self.displayID(for: $0) })
+        selectedDisplayID = id.flatMap { validIDs.contains($0) ? $0 : nil }
+        selectFallbackDisplayIfNeeded()
         if fullscreenEnabled {
             rebuildWindow()
         }
@@ -49,6 +63,16 @@ final class OutputWindowController {
     func showPreview() {
         fullscreenEnabled = false
         rebuildWindow()
+    }
+
+    func displayStatus() -> String {
+        let options = displayOptions()
+        guard !options.isEmpty else {
+            return "main preview, no external display"
+        }
+
+        let target = options.first(where: { $0.id == selectedDisplayID })?.label ?? options[0].label
+        return fullscreenEnabled ? "fullscreen \(target)" : "main preview, target \(target)"
     }
 
     private func rebuildWindow() {
@@ -77,14 +101,13 @@ final class OutputWindowController {
     }
 
     private func selectedExternalScreen() -> NSScreen? {
-        let screens = externalScreens()
+        selectFallbackDisplayIfNeeded()
         if let selectedDisplayID,
-           let screen = screens.first(where: { Self.displayID(for: $0) == selectedDisplayID }) {
+           let screen = externalScreens().first(where: { Self.displayID(for: $0) == selectedDisplayID }) {
             return screen
         }
 
-        selectedDisplayID = screens.compactMap { Self.displayID(for: $0) }.first
-        return screens.first
+        return nil
     }
 
     private func externalScreens() -> [NSScreen] {
@@ -93,7 +116,20 @@ final class OutputWindowController {
     }
 
     private func primaryScreen() -> NSScreen {
-        NSScreen.main ?? NSScreen.screens.first!
+        NSScreen.screens.first ?? NSScreen.main!
+    }
+
+    private func selectFallbackDisplayIfNeeded() {
+        let screens = externalScreens()
+        let validIDs = Set(screens.compactMap { Self.displayID(for: $0) })
+        if let selectedDisplayID, validIDs.contains(selectedDisplayID) {
+            return
+        }
+
+        selectedDisplayID = screens.compactMap { Self.displayID(for: $0) }.first
+        if selectedDisplayID == nil {
+            fullscreenEnabled = false
+        }
     }
 
     @objc private func screenParametersChanged() {
@@ -101,6 +137,7 @@ final class OutputWindowController {
             fullscreenEnabled = false
         }
         rebuildWindow()
+        onScreensChanged?()
     }
 
     private static func displayID(for screen: NSScreen) -> CGDirectDisplayID? {
@@ -108,9 +145,9 @@ final class OutputWindowController {
         return (screen.deviceDescription[key] as? NSNumber).map { CGDirectDisplayID($0.uint32Value) }
     }
 
-    private static func label(for screen: NSScreen, id: CGDirectDisplayID) -> String {
+    private static func label(for screen: NSScreen, id: CGDirectDisplayID, externalIndex: Int) -> String {
         let frame = screen.frame
-        return "Display \(id)  \(Int(frame.width))x\(Int(frame.height))"
+        return "External \(externalIndex + 1) - Display \(id)  \(Int(frame.width))x\(Int(frame.height))"
     }
 
     private static func previewFrame(on screen: NSScreen) -> NSRect {

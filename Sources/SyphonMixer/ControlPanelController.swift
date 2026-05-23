@@ -3,7 +3,7 @@ import CoreGraphics
 import SyphonMixerCore
 
 final class ControlPanelController: NSObject {
-    let view = NSView(frame: NSRect(x: 0, y: 0, width: 960, height: 420))
+    let view = NSView(frame: NSRect(x: 0, y: 0, width: 980, height: 640))
 
     var onRefreshServers: (() -> Void)?
     var onChannelSourceChanged: ((Int, String?) -> Void)?
@@ -26,9 +26,12 @@ final class ControlPanelController: NSObject {
     private let outputLabel = NSTextField(labelWithString: "Output: 1920x1080")
     private let displayPopUp = NSPopUpButton()
     private let fullscreenButton = NSButton(checkboxWithTitle: "Fullscreen", target: nil, action: nil)
+    private let displayStatusLabel = NSTextField(labelWithString: "main preview, no external display")
+    private let channelPreviewViews: [NSView]
     private var isUpdating = false
 
-    override init() {
+    init(channelPreviewViews: [NSView]) {
+        self.channelPreviewViews = channelPreviewViews
         super.init()
         buildUI()
     }
@@ -57,26 +60,37 @@ final class ControlPanelController: NSObject {
         isUpdating = false
     }
 
-    func updateDisplayOptions(_ options: [(id: CGDirectDisplayID, label: String)]) {
+    func updateDisplayOptions(
+        _ options: [(id: CGDirectDisplayID, label: String)],
+        selectedID: CGDirectDisplayID?,
+        canFullscreen: Bool,
+        status: String
+    ) {
         isUpdating = true
-        let selectedObject = displayPopUp.selectedItem?.representedObject as? NSNumber
         displayPopUp.removeAllItems()
         if options.isEmpty {
             displayPopUp.addItem(withTitle: "Preview only")
             displayPopUp.item(at: 0)?.representedObject = nil
+            displayPopUp.isEnabled = false
         } else {
             for option in options {
                 displayPopUp.addItem(withTitle: option.label)
                 displayPopUp.lastItem?.representedObject = NSNumber(value: option.id)
             }
+            displayPopUp.isEnabled = true
         }
 
-        if let selectedObject,
-           let item = displayPopUp.itemArray.first(where: { ($0.representedObject as? NSNumber) == selectedObject }) {
+        if let selectedID,
+           let item = displayPopUp.itemArray.first(where: { ($0.representedObject as? NSNumber)?.uint32Value == selectedID }) {
             displayPopUp.select(item)
         } else {
             displayPopUp.selectItem(at: 0)
         }
+        fullscreenButton.isEnabled = canFullscreen
+        if !canFullscreen {
+            fullscreenButton.state = .off
+        }
+        displayStatusLabel.stringValue = status
         isUpdating = false
     }
 
@@ -145,10 +159,15 @@ final class ControlPanelController: NSObject {
         displayPopUp.widthAnchor.constraint(greaterThanOrEqualToConstant: 210).isActive = true
         displayPopUp.target = self
         displayPopUp.action = #selector(displayChanged)
+        displayStatusLabel.lineBreakMode = .byTruncatingTail
+        displayStatusLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 900).isActive = true
+        root.addArrangedSubview(displayStatusLabel)
 
         for index in 0..<MixerEngine.channelCount {
             root.addArrangedSubview(makeChannelRow(index: index))
         }
+
+        root.addArrangedSubview(makePreviewGrid())
     }
 
     private func makeChannelRow(index: Int) -> NSView {
@@ -205,6 +224,36 @@ final class ControlPanelController: NSObject {
         status.widthAnchor.constraint(greaterThanOrEqualToConstant: 130).isActive = true
         statusLabels.append(status)
         row.addArrangedSubview(status)
+
+        return row
+    }
+
+    private func makePreviewGrid() -> NSView {
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.alignment = .top
+        row.spacing = 12.0
+
+        for index in 0..<MixerEngine.channelCount {
+            let column = NSStackView()
+            column.orientation = .vertical
+            column.alignment = .leading
+            column.spacing = 6.0
+
+            let title = label("Preview CH\(index + 1)")
+            column.addArrangedSubview(title)
+
+            let preview = channelPreviewViews.indices.contains(index) ? channelPreviewViews[index] : NSView()
+            preview.wantsLayer = true
+            preview.layer?.backgroundColor = NSColor.black.cgColor
+            preview.layer?.borderColor = NSColor.separatorColor.cgColor
+            preview.layer?.borderWidth = 1.0
+            preview.widthAnchor.constraint(equalToConstant: 220).isActive = true
+            preview.heightAnchor.constraint(equalToConstant: 124).isActive = true
+            column.addArrangedSubview(preview)
+
+            row.addArrangedSubview(column)
+        }
 
         return row
     }

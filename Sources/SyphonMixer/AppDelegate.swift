@@ -25,11 +25,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let engine = try MixerEngine(device: device)
             let outputView = engine.makeOutputView(frame: NSRect(x: 0, y: 0, width: 960, height: 540))
             let outputController = OutputWindowController(outputView: outputView)
-            let controlPanel = ControlPanelController()
+            let channelPreviewViews: [NSView] = (0..<MixerEngine.channelCount).map { index in
+                engine.makeChannelPreviewView(channel: index, frame: NSRect(x: 0, y: 0, width: 220, height: 124)) as NSView
+            }
+            let controlPanel = ControlPanelController(channelPreviewViews: channelPreviewViews)
 
             self.engine = engine
             self.outputController = outputController
             self.controlPanel = controlPanel
+            outputController.onScreensChanged = { [weak self] in
+                self?.refreshDisplayOptions()
+            }
 
             wireControlPanel(controlPanel)
             showControlWindow(controlPanel.view)
@@ -71,6 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         panel.onDisplayChanged = { [weak self] id in
             self?.outputController?.setSelectedDisplayID(id)
+            self?.refreshDisplayOptions()
         }
         panel.onFullscreenChanged = { [weak self] enabled in
             guard let self else { return }
@@ -85,7 +92,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showControlWindow(_ contentView: NSView) {
         let window = NSWindow(
-            contentRect: NSRect(x: 80, y: 80, width: 980, height: 430),
+            contentRect: NSRect(x: 80, y: 80, width: 1000, height: 680),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,
             defer: false
@@ -128,7 +135,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func refreshDisplayOptions() {
         guard let outputController else { return }
-        controlPanel?.updateDisplayOptions(outputController.displayOptions())
+        controlPanel?.updateDisplayOptions(
+            outputController.displayOptions(),
+            selectedID: outputController.currentSelectedDisplayID,
+            canFullscreen: outputController.canFullscreen,
+            status: outputController.displayStatus()
+        )
         controlPanel?.setFullscreenState(outputController.isFullscreenEnabled)
     }
 

@@ -56,6 +56,7 @@ final class MixerEngine: NSObject, MTKViewDelegate {
     private var outputWidth: Int
     private var outputHeight: Int
     private var outputView: MTKView?
+    private var channelPreviewIndices: [ObjectIdentifier: Int] = [:]
     private var syphonServer: SyphonMetalServer?
 
     init(device: MTLDevice, outputWidth: Int = 1920, outputHeight: Int = 1080) throws {
@@ -113,16 +114,27 @@ final class MixerEngine: NSObject, MTKViewDelegate {
     }
 
     func makeOutputView(frame: NSRect) -> MTKView {
+        let view = makeRenderView(frame: frame, framesPerSecond: 60)
+        outputView = view
+        return view
+    }
+
+    func makeChannelPreviewView(channel index: Int, frame: NSRect) -> MTKView {
+        let view = makeRenderView(frame: frame, framesPerSecond: 30)
+        channelPreviewIndices[ObjectIdentifier(view)] = index
+        return view
+    }
+
+    private func makeRenderView(frame: NSRect, framesPerSecond: Int) -> MTKView {
         let view = MTKView(frame: frame, device: device)
         view.delegate = self
         view.framebufferOnly = false
         view.colorPixelFormat = .bgra8Unorm
         view.clearColor = MTLClearColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0)
-        view.preferredFramesPerSecond = 60
+        view.preferredFramesPerSecond = framesPerSecond
         view.enableSetNeedsDisplay = false
         view.isPaused = false
         view.autoResizeDrawable = true
-        outputView = view
         return view
     }
 
@@ -214,6 +226,17 @@ final class MixerEngine: NSObject, MTKViewDelegate {
     }
 
     func draw(in view: MTKView) {
+        if view === outputView {
+            drawOutput(in: view)
+            return
+        }
+
+        if let channelIndex = channelPreviewIndices[ObjectIdentifier(view)] {
+            drawChannelPreview(channel: channelIndex, in: view)
+        }
+    }
+
+    private func drawOutput(in view: MTKView) {
         autoreleasepool {
             guard let drawable = view.currentDrawable,
                   let commandBuffer = commandQueue.makeCommandBuffer(),
@@ -222,7 +245,14 @@ final class MixerEngine: NSObject, MTKViewDelegate {
             }
 
             encodeMixerPass(to: texture, commandBuffer: commandBuffer)
-            encodePreviewPass(from: texture, view: view, drawable: drawable, commandBuffer: commandBuffer)
+            encodeTexturePass(
+                from: texture,
+                view: view,
+                drawable: drawable,
+                commandBuffer: commandBuffer,
+                mode: .stretch,
+                alpha: 1.0
+            )
 
             syphonServer?.publishFrameTexture(
                 texture,
@@ -234,6 +264,45 @@ final class MixerEngine: NSObject, MTKViewDelegate {
             commandBuffer.present(drawable)
             commandBuffer.commit()
         }
+    }
+
+    private func drawChannelPreview(channel index: Int, in view: MTKView) {
+        autoreleasepool {
+            guard let drawable = view.currentDrawable,
+                  let commandBuffer = commandQueue.makeCommandBuffer() else {
+                return
+            }
+
+            if let texture = currentTextureForPreview(channel: index) {
+                encodeTexturePass(
+                    from: texture,
+                    view: view,
+                    drawable: drawable,
+                    commandBuffer: commandBuffer,
+                    mode: .fit,
+                    alpha: 1.0
+                )
+            } else {
+                encodeClearPass(view: view, commandBuffer: commandBuffer)
+            }
+
+            commandBuffer.present(drawable)
+            commandBuffer.commit()
+        }
+    }
+
+    private func currentTextureForPreview(channel index: Int) -> MTLTexture? {
+        guard channels.indices.contains(index) else { return nil }
+        let channel = channels[index]
+        guard channel.isEnabled,
+              let client = channel.client,
+              client.isValid,
+              let texture = client.newFrameImage() else {
+            return nil
+        }
+        channel.lastSize = MixerSize(width: Double(texture.width), height: Double(texture.height))
+        channel.lastFrameTime = Date()
+        return texture
     }
 
     private func ensureOutputTexture() -> MTLTexture? {
@@ -286,11 +355,13 @@ final class MixerEngine: NSObject, MTKViewDelegate {
         encoder.endEncoding()
     }
 
-    private func encodePreviewPass(
+    private func encodeTexturePass(
         from texture: MTLTexture,
         view: MTKView,
         drawable: CAMetalDrawable,
-        commandBuffer: MTLCommandBuffer
+        commandBuffer: MTLCommandBuffer,
+        mode: ScaleMode,
+        alpha: Float
     ) {
         guard let passDescriptor = view.currentRenderPassDescriptor,
               let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: passDescriptor) else {
@@ -299,7 +370,21 @@ final class MixerEngine: NSObject, MTKViewDelegate {
 
         encoder.setRenderPipelineState(pipelineState)
         encoder.setFragmentSamplerState(samplerState, index: 0)
-        drawQuad(texture: texture, mapping: TextureMapping(destination: .full, uv: .full), alpha: 1.0, encoder: encoder)
+        let mapping = AspectLayout.mapping(
+            source: MixerSize(width: Double(texture.width), height: Double(texture.height)),
+            output: MixerSize(width: Double(drawable.texture.width), height: Double(drawable.texture.height)),
+            mode: mode
+        )
+        drawQuad(texture: texture, mapping: mapping, alpha: alpha, encoder: encoder)
+        encoder.endEncoding()
+    }
+
+    private func encodeClearPass(view: MTKView, commandBuffer: MTLCommandBuffer) {
+        guard let passDescriptor = view.currentRenderPassDescriptor,
+              let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: passDescriptor) else {
+            return
+        }
+
         encoder.endEncoding()
     }
 

@@ -11,11 +11,13 @@ Native macOS Syphon mixer for four live input servers.
 - Automatic fit, fill/crop, or stretch mapping to the output texture
 - Final mixed texture published as the `syphon-mixer Output` Syphon server
 - Separate AppKit control window and output window
-- External-display fullscreen routing with main-display preview fallback
+- External-display selector with fullscreen routing and main-display preview fallback
+- Per-channel live preview panes in the control window
 
 Selecting `None` on a channel stops and clears that channel's Syphon client.
 Turning a channel `Off` keeps the selected source in the UI but disconnects the
 client until the channel is turned back on.
+The fullscreen toggle is enabled only when an external display is detected.
 
 ## Build
 

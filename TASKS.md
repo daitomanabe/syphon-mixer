@@ -7,7 +7,8 @@
 - Additive compositing for enabled channels
 - Output-size controlled Metal render target
 - Final mixed Syphon server named `syphon-mixer Output`
-- Main-display control window plus preview/external fullscreen output window
+- Main-display control window plus selectable external fullscreen output window
+- Per-channel live preview panes
 - Build script with bundled `Syphon.framework` and ad-hoc codesign verification
 
 ## Next
