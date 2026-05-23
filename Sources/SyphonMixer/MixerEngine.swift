@@ -43,7 +43,9 @@ private final class MixerInputChannel {
 }
 
 final class MixerEngine: NSObject, MTKViewDelegate {
-    static let channelCount = 4
+    static let syphonInputCount = 4
+    static let testPatternChannelIndex = syphonInputCount
+    static let channelCount = syphonInputCount + 1
     static let outputServerName = "syphon-mixer Output"
 
     let device: MTLDevice
@@ -51,13 +53,23 @@ final class MixerEngine: NSObject, MTKViewDelegate {
     private let commandQueue: MTLCommandQueue
     private let pipelineState: MTLRenderPipelineState
     private let samplerState: MTLSamplerState
-    private let channels = (0..<MixerEngine.channelCount).map { _ in MixerInputChannel() }
+    private let channels: [MixerInputChannel] = {
+        let channels = (0..<MixerEngine.channelCount).map { _ in MixerInputChannel() }
+        let testChannel = channels[MixerEngine.testPatternChannelIndex]
+        testChannel.label = "Test Pattern"
+        testChannel.isEnabled = false
+        testChannel.scaleMode = .stretch
+        return channels
+    }()
     private var outputTexture: MTLTexture?
     private var outputWidth: Int
     private var outputHeight: Int
     private var outputView: MTKView?
     private var channelPreviewIndices: [ObjectIdentifier: Int] = [:]
     private var syphonServer: SyphonMetalServer?
+    private let testPatternWidth = 1920
+    private let testPatternHeight = 1080
+    private var testPatternTexture: MTLTexture?
 
     init(device: MTLDevice, outputWidth: Int = 1920, outputHeight: Int = 1080) throws {
         self.device = device
@@ -139,7 +151,7 @@ final class MixerEngine: NSObject, MTKViewDelegate {
     }
 
     func setSource(channel index: Int, source: SyphonServerInfo?) {
-        guard channels.indices.contains(index) else { return }
+        guard channels.indices.contains(index), !isTestPatternChannel(index) else { return }
         let channel = channels[index]
         channel.disconnect()
 
@@ -191,6 +203,15 @@ final class MixerEngine: NSObject, MTKViewDelegate {
 
     func channelStatuses() -> [String] {
         channels.enumerated().map { index, channel in
+            if isTestPatternChannel(index) {
+                guard channel.isEnabled else {
+                    return "TEST: off"
+                }
+                let size = channel.lastSize.map { "\(Int($0.width))x\(Int($0.height))" }
+                    ?? "\(testPatternWidth)x\(testPatternHeight)"
+                return "TEST: pattern, \(size)"
+            }
+
             guard channel.isEnabled else {
                 return "CH\(index + 1): off"
             }
@@ -201,6 +222,10 @@ final class MixerEngine: NSObject, MTKViewDelegate {
             let size = channel.lastSize.map { "\(Int($0.width))x\(Int($0.height))" } ?? "waiting"
             return "CH\(index + 1): \(valid), \(size)"
         }
+    }
+
+    private func isTestPatternChannel(_ index: Int) -> Bool {
+        index == Self.testPatternChannelIndex
     }
 
     private func connectChannelIfNeeded(_ channel: MixerInputChannel) {
@@ -292,16 +317,119 @@ final class MixerEngine: NSObject, MTKViewDelegate {
     }
 
     private func currentTextureForPreview(channel index: Int) -> MTLTexture? {
+        currentTexture(forChannel: index, requirePositiveVolume: false)
+    }
+
+    private func currentTexture(forChannel index: Int, requirePositiveVolume: Bool) -> MTLTexture? {
         guard channels.indices.contains(index) else { return nil }
         let channel = channels[index]
-        guard channel.isEnabled,
-              let client = channel.client,
+        guard channel.isEnabled else { return nil }
+        if requirePositiveVolume, channel.volume <= 0.0 {
+            return nil
+        }
+
+        if isTestPatternChannel(index) {
+            guard let texture = makeTestPatternTexture() else { return nil }
+            channel.lastSize = MixerSize(width: Double(texture.width), height: Double(texture.height))
+            channel.lastFrameTime = Date()
+            return texture
+        }
+
+        guard let client = channel.client,
               client.isValid,
               let texture = client.newFrameImage() else {
             return nil
         }
         channel.lastSize = MixerSize(width: Double(texture.width), height: Double(texture.height))
         channel.lastFrameTime = Date()
+        return texture
+    }
+
+    private func makeTestPatternTexture() -> MTLTexture? {
+        if let testPatternTexture {
+            return testPatternTexture
+        }
+
+        let width = testPatternWidth
+        let height = testPatternHeight
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        let bars: [(r: UInt8, g: UInt8, b: UInt8)] = [
+            (255, 255, 255),
+            (255, 255, 0),
+            (0, 255, 255),
+            (0, 255, 0),
+            (255, 0, 255),
+            (255, 0, 0),
+            (0, 0, 255),
+            (0, 0, 0)
+        ]
+
+        for y in 0..<height {
+            for x in 0..<width {
+                let barIndex = min((x * bars.count) / width, bars.count - 1)
+                var r = bars[barIndex].r
+                var g = bars[barIndex].g
+                var b = bars[barIndex].b
+
+                if y >= height * 3 / 4 {
+                    let ramp = UInt8((x * 255) / max(width - 1, 1))
+                    r = ramp
+                    g = ramp
+                    b = ramp
+                }
+
+                if y >= height * 7 / 8 {
+                    let white = ((x / 40) + (y / 40)).isMultiple(of: 2)
+                    r = white ? 255 : 0
+                    g = white ? 255 : 0
+                    b = white ? 255 : 0
+                }
+
+                let isBorder = x < 6 || y < 6 || x >= width - 6 || y >= height - 6
+                let isCenterLine = abs(x - width / 2) <= 2 || abs(y - height / 2) <= 2
+                let isGrid = x.isMultiple(of: 120) || y.isMultiple(of: 120)
+                if isBorder || isCenterLine {
+                    r = 255
+                    g = 255
+                    b = 255
+                } else if isGrid {
+                    r = max(r / 2, 48)
+                    g = max(g / 2, 48)
+                    b = max(b / 2, 48)
+                }
+
+                let offset = (y * width + x) * 4
+                bytes[offset] = b
+                bytes[offset + 1] = g
+                bytes[offset + 2] = r
+                bytes[offset + 3] = 255
+            }
+        }
+
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: width,
+            height: height,
+            mipmapped: false
+        )
+        descriptor.usage = [.shaderRead]
+        descriptor.storageMode = .shared
+
+        guard let texture = device.makeTexture(descriptor: descriptor) else {
+            return nil
+        }
+
+        bytes.withUnsafeBytes { rawBuffer in
+            guard let baseAddress = rawBuffer.baseAddress else { return }
+            texture.replace(
+                region: MTLRegionMake2D(0, 0, width, height),
+                mipmapLevel: 0,
+                withBytes: baseAddress,
+                bytesPerRow: width * 4
+            )
+        }
+
+        testPatternTexture = texture
         return texture
     }
 
@@ -336,19 +464,14 @@ final class MixerEngine: NSObject, MTKViewDelegate {
         encoder.setFragmentSamplerState(samplerState, index: 0)
 
         let outputSize = MixerSize(width: Double(outputWidth), height: Double(outputHeight))
-        for channel in channels {
-            guard channel.isEnabled,
-                  channel.volume > 0.0,
-                  let client = channel.client,
-                  client.isValid,
-                  let sourceTexture = client.newFrameImage() else {
+        for (index, channel) in channels.enumerated() {
+            guard let sourceTexture = currentTexture(forChannel: index, requirePositiveVolume: true) else {
                 continue
             }
 
             let sourceSize = MixerSize(width: Double(sourceTexture.width), height: Double(sourceTexture.height))
-            channel.lastSize = sourceSize
-            channel.lastFrameTime = Date()
-            let mapping = AspectLayout.mapping(source: sourceSize, output: outputSize, mode: channel.scaleMode)
+            let mode: ScaleMode = isTestPatternChannel(index) ? .stretch : channel.scaleMode
+            let mapping = AspectLayout.mapping(source: sourceSize, output: outputSize, mode: mode)
             drawQuad(texture: sourceTexture, mapping: mapping, alpha: channel.volume, encoder: encoder)
         }
 

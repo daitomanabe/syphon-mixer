@@ -10,7 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var controlWindow: NSWindow?
     private var refreshTimer: Timer?
     private var knownServers: [SyphonServerInfo] = []
-    private var selectedServerIDs = Array<String?>(repeating: nil, count: MixerEngine.channelCount)
+    private var selectedServerIDs = Array<String?>(repeating: nil, count: MixerEngine.syphonInputCount)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         _ = notification
@@ -25,8 +25,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let engine = try MixerEngine(device: device)
             let outputView = engine.makeOutputView(frame: NSRect(x: 0, y: 0, width: 960, height: 540))
             let outputController = OutputWindowController(outputView: outputView)
+            let previewWidth: CGFloat = MixerEngine.channelCount > 4 ? 176 : 220
+            let previewHeight = previewWidth * 9.0 / 16.0
             let channelPreviewViews: [NSView] = (0..<MixerEngine.channelCount).map { index in
-                engine.makeChannelPreviewView(channel: index, frame: NSRect(x: 0, y: 0, width: 220, height: 124)) as NSView
+                engine.makeChannelPreviewView(
+                    channel: index,
+                    frame: NSRect(x: 0, y: 0, width: previewWidth, height: previewHeight)
+                ) as NSView
             }
             let controlPanel = ControlPanelController(channelPreviewViews: channelPreviewViews)
 

@@ -100,7 +100,8 @@ final class ControlPanelController: NSObject {
 
     func updateChannelStatuses(_ statuses: [String]) {
         for index in statusLabels.indices {
-            statusLabels[index].stringValue = statuses.indices.contains(index) ? statuses[index] : "CH\(index + 1): none"
+            let fallback = "\(channelTitle(index: index)): none"
+            statusLabels[index].stringValue = statuses.indices.contains(index) ? statuses[index] : fallback
         }
     }
 
@@ -175,25 +176,33 @@ final class ControlPanelController: NSObject {
         row.orientation = .horizontal
         row.alignment = .centerY
         row.spacing = 10.0
+        let isTestPattern = isTestPatternChannel(index)
 
-        let channelLabel = label("CH\(index + 1)")
+        let channelLabel = label(channelTitle(index: index))
         channelLabel.widthAnchor.constraint(equalToConstant: 44).isActive = true
         row.addArrangedSubview(channelLabel)
 
         let enabledButton = NSButton(checkboxWithTitle: "On", target: self, action: #selector(enabledChanged))
-        enabledButton.state = .on
+        enabledButton.state = isTestPattern ? .off : .on
         enabledButton.tag = index
         enabledButton.widthAnchor.constraint(equalToConstant: 56).isActive = true
         enabledButtons.append(enabledButton)
         row.addArrangedSubview(enabledButton)
 
-        let serverPopUp = NSPopUpButton()
-        serverPopUp.target = self
-        serverPopUp.action = #selector(serverChanged)
-        serverPopUp.tag = index
-        serverPopUp.widthAnchor.constraint(equalToConstant: 250).isActive = true
-        serverPopUps.append(serverPopUp)
-        row.addArrangedSubview(serverPopUp)
+        if isTestPattern {
+            let sourceLabel = NSTextField(labelWithString: "Built-in Test Pattern")
+            sourceLabel.lineBreakMode = .byTruncatingTail
+            sourceLabel.widthAnchor.constraint(equalToConstant: 250).isActive = true
+            row.addArrangedSubview(sourceLabel)
+        } else {
+            let serverPopUp = NSPopUpButton()
+            serverPopUp.target = self
+            serverPopUp.action = #selector(serverChanged)
+            serverPopUp.tag = index
+            serverPopUp.widthAnchor.constraint(equalToConstant: 250).isActive = true
+            serverPopUps.append(serverPopUp)
+            row.addArrangedSubview(serverPopUp)
+        }
 
         let slider = NSSlider(value: 1.0, minValue: 0.0, maxValue: 1.0, target: self, action: #selector(volumeChanged))
         slider.tag = index
@@ -207,19 +216,25 @@ final class ControlPanelController: NSObject {
         volumeLabels.append(volumeLabel)
         row.addArrangedSubview(volumeLabel)
 
-        let modePopUp = NSPopUpButton()
-        for mode in ScaleMode.allCases {
-            modePopUp.addItem(withTitle: mode.rawValue)
-            modePopUp.lastItem?.representedObject = mode.rawValue
+        if isTestPattern {
+            let modeLabel = NSTextField(labelWithString: "Stretch")
+            modeLabel.widthAnchor.constraint(equalToConstant: 120).isActive = true
+            row.addArrangedSubview(modeLabel)
+        } else {
+            let modePopUp = NSPopUpButton()
+            for mode in ScaleMode.allCases {
+                modePopUp.addItem(withTitle: mode.rawValue)
+                modePopUp.lastItem?.representedObject = mode.rawValue
+            }
+            modePopUp.target = self
+            modePopUp.action = #selector(scaleModeChanged)
+            modePopUp.tag = index
+            modePopUp.widthAnchor.constraint(equalToConstant: 120).isActive = true
+            modePopUps.append(modePopUp)
+            row.addArrangedSubview(modePopUp)
         }
-        modePopUp.target = self
-        modePopUp.action = #selector(scaleModeChanged)
-        modePopUp.tag = index
-        modePopUp.widthAnchor.constraint(equalToConstant: 120).isActive = true
-        modePopUps.append(modePopUp)
-        row.addArrangedSubview(modePopUp)
 
-        let status = NSTextField(labelWithString: "CH\(index + 1): none")
+        let status = NSTextField(labelWithString: isTestPattern ? "TEST: off" : "CH\(index + 1): none")
         status.lineBreakMode = .byTruncatingTail
         status.widthAnchor.constraint(greaterThanOrEqualToConstant: 130).isActive = true
         statusLabels.append(status)
@@ -233,6 +248,8 @@ final class ControlPanelController: NSObject {
         row.orientation = .horizontal
         row.alignment = .top
         row.spacing = 12.0
+        let previewWidth: CGFloat = MixerEngine.channelCount > 4 ? 176 : 220
+        let previewHeight = previewWidth * 9.0 / 16.0
 
         for index in 0..<MixerEngine.channelCount {
             let column = NSStackView()
@@ -240,7 +257,7 @@ final class ControlPanelController: NSObject {
             column.alignment = .leading
             column.spacing = 6.0
 
-            let title = label("Preview CH\(index + 1)")
+            let title = label("Preview \(channelTitle(index: index))")
             column.addArrangedSubview(title)
 
             let preview = channelPreviewViews.indices.contains(index) ? channelPreviewViews[index] : NSView()
@@ -248,8 +265,8 @@ final class ControlPanelController: NSObject {
             preview.layer?.backgroundColor = NSColor.black.cgColor
             preview.layer?.borderColor = NSColor.separatorColor.cgColor
             preview.layer?.borderWidth = 1.0
-            preview.widthAnchor.constraint(equalToConstant: 220).isActive = true
-            preview.heightAnchor.constraint(equalToConstant: 124).isActive = true
+            preview.widthAnchor.constraint(equalToConstant: previewWidth).isActive = true
+            preview.heightAnchor.constraint(equalToConstant: previewHeight).isActive = true
             column.addArrangedSubview(preview)
 
             row.addArrangedSubview(column)
@@ -262,6 +279,14 @@ final class ControlPanelController: NSObject {
         let field = NSTextField(labelWithString: string)
         field.font = .systemFont(ofSize: 13, weight: .medium)
         return field
+    }
+
+    private func channelTitle(index: Int) -> String {
+        isTestPatternChannel(index) ? "TEST" : "CH\(index + 1)"
+    }
+
+    private func isTestPatternChannel(_ index: Int) -> Bool {
+        index == MixerEngine.testPatternChannelIndex
     }
 
     @objc private func refreshServers() {

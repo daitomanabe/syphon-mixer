@@ -1,11 +1,13 @@
 # syphon-mixer
 
-Native macOS Syphon mixer for four live input servers.
+Native macOS Syphon mixer for four live input servers plus a built-in test pattern.
 
 ## Current Scope
 
 - 4 Syphon input channels using `SyphonMetalClient`
-- Per-channel source selector, on/off switch, fader, and scale mode
+- 1 built-in test pattern channel for external display checks
+- Source selector and scale mode for each Syphon input
+- On/off switch and fader for every channel, including `TEST`
 - Additive RGB compositing controlled by each channel fader
 - Output texture size control
 - Automatic fit, fill/crop, or stretch mapping to the output texture
@@ -17,7 +19,10 @@ Native macOS Syphon mixer for four live input servers.
 Selecting `None` on a channel stops and clears that channel's Syphon client.
 Turning a channel `Off` keeps the selected source in the UI but disconnects the
 client until the channel is turned back on.
-The fullscreen toggle is enabled only when an external display is detected.
+The `TEST` channel starts off by default, outputs a 1920x1080 color bar/grid
+pattern when enabled, and follows the same on/off and fader controls as the
+Syphon channels. The fullscreen toggle is enabled only when an external display
+is detected.
 
 ## Build
 
