@@ -10,6 +10,8 @@
 - Main-display control window plus selectable external fullscreen output window
 - Per-channel live preview panes
 - Build script with bundled `Syphon.framework` and ad-hoc codesign verification
+- Reusable Syphon framework lookup through `SYPHON_FRAMEWORK_PARENT` and global cache helper
+- Syphon output notes in `docs/syphon-output.md`
 
 ## Next
 

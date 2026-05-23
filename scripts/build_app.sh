@@ -2,7 +2,9 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SYPHON_FRAMEWORK="${ROOT_DIR}/../Syphon-Framework/build/Release/Syphon.framework"
+SYPHON_FRAMEWORK_PARENT="$("${ROOT_DIR}/scripts/ensure_syphon_framework.sh")"
+export SYPHON_FRAMEWORK_PARENT
+SYPHON_FRAMEWORK="${SYPHON_FRAMEWORK_PARENT}/Syphon.framework"
 APP_DIR="${ROOT_DIR}/build/Syphon Mixer.app"
 EXECUTABLE="${APP_DIR}/Contents/MacOS/SyphonMixer"
 SWIFTPM_BUILD_DIR="${TMPDIR:-/tmp}/syphon-mixer-swiftpm-release"
@@ -15,7 +17,7 @@ fi
 
 cd "${ROOT_DIR}"
 rm -rf "${SWIFTPM_BUILD_DIR}"
-swift build --scratch-path "${SWIFTPM_BUILD_DIR}" -c release -Xswiftc -F../Syphon-Framework/build/Release
+swift build --scratch-path "${SWIFTPM_BUILD_DIR}" -c release -Xswiftc "-F${SYPHON_FRAMEWORK_PARENT}"
 
 rm -rf "${APP_DIR}"
 mkdir -p "${APP_DIR}/Contents/MacOS" "${APP_DIR}/Contents/Frameworks"

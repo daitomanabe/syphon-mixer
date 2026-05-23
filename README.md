@@ -27,10 +27,21 @@ This repository expects the sibling Syphon framework checkout at:
 ../Syphon-Framework
 ```
 
+The scripts first ask the global `syphon-framework-cache` helper for a reusable
+framework location. They then fall back to `../Syphon-Framework/build/Release`.
+You can also set `SYPHON_FRAMEWORK_PARENT` to any directory that contains
+`Syphon.framework`.
+
 Build the app bundle:
 
 ```bash
 ./scripts/build_app.sh
+```
+
+Run tests:
+
+```bash
+./scripts/test.sh
 ```
 
 Run from SwiftPM during development:
@@ -38,6 +49,9 @@ Run from SwiftPM during development:
 ```bash
 ./scripts/run_app.sh
 ```
+
+Syphon output behavior and operational cautions are documented in
+[docs/syphon-output.md](docs/syphon-output.md).
 
 ## Notes
 

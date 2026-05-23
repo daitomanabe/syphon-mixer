@@ -2,7 +2,7 @@
 
 import PackageDescription
 
-let syphonFrameworkPath = "../Syphon-Framework/build/Release"
+let syphonFrameworkPath = Context.environment["SYPHON_FRAMEWORK_PARENT"] ?? "../Syphon-Framework/build/Release"
 
 let package = Package(
     name: "syphon-mixer",
