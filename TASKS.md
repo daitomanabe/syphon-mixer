@@ -7,7 +7,7 @@
 - Built-in TEST channel with a 1920x1080 color bar/grid pattern, on/off switch, fader, and preview
 - Additive compositing for enabled channels
 - Output-size controlled Metal render target
-- Default-on SonyPark0523 PixelMap mode with centered 1344x672 active area inside 1920x1080
+- Default-on SonyPark0523 PixelMap mode with 1344x672 active area at x=0, y=0 inside 1920x1080
 - Final mixed Syphon server named `syphon-mixer Output`
 - Main-display control window plus selectable external fullscreen output window
 - Per-channel live preview panes

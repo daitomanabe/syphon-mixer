@@ -26,8 +26,9 @@ Syphon channels. The fullscreen toggle is enabled only when an external display
 is detected.
 
 PixelMap mode keeps the final output canvas at 1920x1080 and maps the mixed
-content into the centered 1344x672 active area at x=288, y=204. The inactive
-area remains black. Turning PixelMap off maps the mix to the full output canvas.
+content into the 1344x672 active area at the top-left origin, x=0, y=0. The
+inactive area remains black. Turning PixelMap off maps the mix to the full
+output canvas.
 
 ## Build
 

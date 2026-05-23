@@ -113,8 +113,8 @@ public enum PixelMapLayout {
 
         let activeSize = activeSize(in: canvas)
         return UnitRect(
-            x: ((canvas.width - activeSize.width) * 0.5) / canvas.width,
-            y: ((canvas.height - activeSize.height) * 0.5) / canvas.height,
+            x: 0.0,
+            y: 0.0,
             width: activeSize.width / canvas.width,
             height: activeSize.height / canvas.height
         )
