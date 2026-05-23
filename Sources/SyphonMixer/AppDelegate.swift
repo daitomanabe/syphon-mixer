@@ -80,6 +80,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             engine?.setOutputSize(width: width, height: height)
             panel.updateOutputLabel(engine?.outputSizeLabel() ?? "\(width)x\(height)")
         }
+        panel.onPixelMapChanged = { [weak self] enabled in
+            self?.engine?.setPixelMapEnabled(enabled)
+        }
         panel.onDisplayChanged = { [weak self] id in
             self?.outputController?.setSelectedDisplayID(id)
             self?.refreshDisplayOptions()

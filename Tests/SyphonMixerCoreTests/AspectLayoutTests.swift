@@ -53,4 +53,22 @@ final class AspectLayoutTests: XCTestCase {
         XCTAssertEqual(mapping.destination, .full)
         XCTAssertEqual(mapping.uv, .full)
     }
+
+    func testSonyParkPixelMapActiveAreaIsCenteredInFullHD() {
+        let canvas = MixerSize(width: 1920, height: 1080)
+        let area = PixelMapLayout.activeArea(in: canvas)
+
+        XCTAssertEqual(area.x * canvas.width, 288, accuracy: 0.0001)
+        XCTAssertEqual(area.y * canvas.height, 204, accuracy: 0.0001)
+        XCTAssertEqual(area.width * canvas.width, 1344, accuracy: 0.0001)
+        XCTAssertEqual(area.height * canvas.height, 672, accuracy: 0.0001)
+    }
+
+    func testPixelMapDestinationMapsIntoActiveArea() {
+        let canvas = MixerSize(width: 1920, height: 1080)
+        let area = PixelMapLayout.activeArea(in: canvas)
+        let mapped = PixelMapLayout.map(destination: .full, into: area)
+
+        XCTAssertEqual(mapped, area)
+    }
 }

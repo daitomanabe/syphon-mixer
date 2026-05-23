@@ -70,6 +70,7 @@ final class MixerEngine: NSObject, MTKViewDelegate {
     private let testPatternWidth = 1920
     private let testPatternHeight = 1080
     private var testPatternTexture: MTLTexture?
+    private var pixelMapEnabled = true
 
     init(device: MTLDevice, outputWidth: Int = 1920, outputHeight: Int = 1080) throws {
         self.device = device
@@ -195,6 +196,10 @@ final class MixerEngine: NSObject, MTKViewDelegate {
         outputWidth = safeWidth
         outputHeight = safeHeight
         outputTexture = nil
+    }
+
+    func setPixelMapEnabled(_ enabled: Bool) {
+        pixelMapEnabled = enabled
     }
 
     func outputSizeLabel() -> String {
@@ -464,6 +469,9 @@ final class MixerEngine: NSObject, MTKViewDelegate {
         encoder.setFragmentSamplerState(samplerState, index: 0)
 
         let outputSize = MixerSize(width: Double(outputWidth), height: Double(outputHeight))
+        let activeArea = pixelMapEnabled ? PixelMapLayout.activeArea(in: outputSize) : .full
+        let contentOutputSize = pixelMapEnabled ? PixelMapLayout.activeSize(in: outputSize) : outputSize
+
         for (index, channel) in channels.enumerated() {
             guard let sourceTexture = currentTexture(forChannel: index, requirePositiveVolume: true) else {
                 continue
@@ -471,7 +479,11 @@ final class MixerEngine: NSObject, MTKViewDelegate {
 
             let sourceSize = MixerSize(width: Double(sourceTexture.width), height: Double(sourceTexture.height))
             let mode: ScaleMode = isTestPatternChannel(index) ? .stretch : channel.scaleMode
-            let mapping = AspectLayout.mapping(source: sourceSize, output: outputSize, mode: mode)
+            let baseMapping = AspectLayout.mapping(source: sourceSize, output: contentOutputSize, mode: mode)
+            let mapping = TextureMapping(
+                destination: PixelMapLayout.map(destination: baseMapping.destination, into: activeArea),
+                uv: baseMapping.uv
+            )
             drawQuad(texture: sourceTexture, mapping: mapping, alpha: channel.volume, encoder: encoder)
         }
 

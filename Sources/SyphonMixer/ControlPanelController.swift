@@ -11,6 +11,7 @@ final class ControlPanelController: NSObject {
     var onChannelVolumeChanged: ((Int, Float) -> Void)?
     var onChannelScaleModeChanged: ((Int, ScaleMode) -> Void)?
     var onOutputSizeChanged: ((Int, Int) -> Void)?
+    var onPixelMapChanged: ((Bool) -> Void)?
     var onDisplayChanged: ((CGDirectDisplayID?) -> Void)?
     var onFullscreenChanged: ((Bool) -> Void)?
     var onQuit: (() -> Void)?
@@ -25,6 +26,7 @@ final class ControlPanelController: NSObject {
     private let heightField = NSTextField(string: "1080")
     private let outputLabel = NSTextField(labelWithString: "Output: 1920x1080")
     private let displayPopUp = NSPopUpButton()
+    private let pixelMapButton = NSButton(checkboxWithTitle: "PixelMap", target: nil, action: nil)
     private let fullscreenButton = NSButton(checkboxWithTitle: "Fullscreen", target: nil, action: nil)
     private let displayStatusLabel = NSTextField(labelWithString: "main preview, no external display")
     private let channelPreviewViews: [NSView]
@@ -144,6 +146,10 @@ final class ControlPanelController: NSObject {
 
         let applyButton = NSButton(title: "Apply", target: self, action: #selector(applyOutputSize))
         outputRow.addArrangedSubview(applyButton)
+        pixelMapButton.state = .on
+        pixelMapButton.target = self
+        pixelMapButton.action = #selector(pixelMapChanged)
+        outputRow.addArrangedSubview(pixelMapButton)
         outputRow.addArrangedSubview(displayPopUp)
         fullscreenButton.target = self
         fullscreenButton.action = #selector(fullscreenChanged)
@@ -321,6 +327,11 @@ final class ControlPanelController: NSObject {
 
     @objc private func applyOutputSize() {
         onOutputSizeChanged?(widthField.integerValue, heightField.integerValue)
+    }
+
+    @objc private func pixelMapChanged(_ sender: NSButton) {
+        guard !isUpdating else { return }
+        onPixelMapChanged?(sender.state == .on)
     }
 
     @objc private func displayChanged() {

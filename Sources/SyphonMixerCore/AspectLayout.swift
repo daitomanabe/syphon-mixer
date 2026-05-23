@@ -91,3 +91,41 @@ public enum AspectLayout {
         }
     }
 }
+
+public enum PixelMapLayout {
+    public static let sonyPark0523ActiveSize = MixerSize(width: 1344, height: 672)
+
+    public static func activeSize(in canvas: MixerSize) -> MixerSize {
+        guard canvas.isValid else {
+            return sonyPark0523ActiveSize
+        }
+
+        return MixerSize(
+            width: min(sonyPark0523ActiveSize.width, canvas.width),
+            height: min(sonyPark0523ActiveSize.height, canvas.height)
+        )
+    }
+
+    public static func activeArea(in canvas: MixerSize) -> UnitRect {
+        guard canvas.isValid else {
+            return .full
+        }
+
+        let activeSize = activeSize(in: canvas)
+        return UnitRect(
+            x: ((canvas.width - activeSize.width) * 0.5) / canvas.width,
+            y: ((canvas.height - activeSize.height) * 0.5) / canvas.height,
+            width: activeSize.width / canvas.width,
+            height: activeSize.height / canvas.height
+        )
+    }
+
+    public static func map(destination: UnitRect, into activeArea: UnitRect) -> UnitRect {
+        UnitRect(
+            x: activeArea.x + destination.x * activeArea.width,
+            y: activeArea.y + destination.y * activeArea.height,
+            width: destination.width * activeArea.width,
+            height: destination.height * activeArea.height
+        )
+    }
+}
