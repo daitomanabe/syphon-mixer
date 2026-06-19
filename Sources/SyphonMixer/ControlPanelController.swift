@@ -143,7 +143,7 @@ final class ControlPanelController: NSObject {
 
         let applyButton = NSButton(title: "Apply", target: self, action: #selector(applyOutputSize))
         outputRow.addArrangedSubview(applyButton)
-        pixelMapButton.state = .on
+        pixelMapButton.state = .off
         pixelMapButton.target = self
         pixelMapButton.action = #selector(pixelMapChanged)
         outputRow.addArrangedSubview(pixelMapButton)

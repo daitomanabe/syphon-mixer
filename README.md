@@ -10,7 +10,7 @@ Native macOS Syphon mixer for four live input servers plus a built-in test patte
 - On/off switch and fader for every channel, including `TEST`
 - Additive RGB compositing controlled by each channel fader
 - Output texture size control
-- SonyPark0523 PixelMap output mode, enabled by default
+- SonyPark0523 PixelMap output mode, available from the control panel
 - Automatic fit, fill/crop, or stretch mapping to the output texture
 - Final mixed texture published as the `syphon-mixer Output` Syphon server
 - Separate AppKit control window and output window
@@ -25,10 +25,10 @@ pattern when enabled, and follows the same on/off and fader controls as the
 Syphon channels. The fullscreen toggle is enabled only when an external display
 is detected.
 
-PixelMap mode keeps the final output canvas at 1920x1080 and maps the mixed
-content into the 1344x672 active area at the top-left origin, x=0, y=0. The
-inactive area remains black. Turning PixelMap off maps the mix to the full
-output canvas.
+PixelMap is off by default. Turning PixelMap on keeps the final output
+canvas at 1920x1080 and maps the mixed content into the 1344x672 active area at
+the top-left origin, x=0, y=0. The inactive area remains black. With PixelMap
+off, the mix maps to the full output canvas.
 
 ## Build
 

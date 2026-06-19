@@ -9,7 +9,7 @@
 
 ## Texture And Timing
 
-- Render all channels into the configured output texture before calling `publishFrameTexture`.
+- Render all channels into the configured output texture, then publish the final orientation-corrected texture.
 - Publish once per output frame on the same Metal command buffer used for the final render.
 - Keep the texture valid until the command buffer commits. Do not release or overwrite the texture before publish is encoded.
 - Avoid CPU readback in the frame loop. Readbacks will quickly break 60 fps output.
