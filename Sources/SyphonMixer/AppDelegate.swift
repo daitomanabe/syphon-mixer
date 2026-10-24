@@ -92,6 +92,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.onPixelMapChanged = { [weak self] enabled in
             self?.engine?.setPixelMapEnabled(enabled)
         }
+        panel.onOutputFlipChanged = { [weak self] horizontal, vertical in
+            self?.engine?.setOutputFlip(horizontal: horizontal, vertical: vertical)
+        }
         panel.onDisplayChanged = { [weak self] id in
             self?.outputController?.setSelectedDisplayID(id)
             self?.refreshDisplayOptions()

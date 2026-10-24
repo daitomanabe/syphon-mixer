@@ -13,9 +13,12 @@ private struct FragmentUniforms {
     var alpha: Float
 }
 
-private enum TextureOrientation {
-    case normal
-    case flippedVertical
+private struct TextureOrientation {
+    var flipX = false
+    var flipY = false
+
+    static let normal = TextureOrientation()
+    static let flippedVertical = TextureOrientation(flipY: true)
 }
 
 private final class MixerInputChannel {
@@ -77,6 +80,7 @@ final class MixerEngine: NSObject, MTKViewDelegate {
     private var testPatternTexture: MTLTexture?
     private var finalOutputTexture: MTLTexture?
     private var pixelMapEnabled = false
+    private var outputFlip = TextureOrientation.normal
 
     init(device: MTLDevice, outputWidth: Int = 1920, outputHeight: Int = 1080) throws {
         self.device = device
@@ -207,6 +211,10 @@ final class MixerEngine: NSObject, MTKViewDelegate {
 
     func setPixelMapEnabled(_ enabled: Bool) {
         pixelMapEnabled = enabled
+    }
+
+    func setOutputFlip(horizontal: Bool, vertical: Bool) {
+        outputFlip = TextureOrientation(flipX: horizontal, flipY: vertical)
     }
 
     func outputSizeLabel() -> String {
@@ -521,11 +529,21 @@ final class MixerEngine: NSObject, MTKViewDelegate {
             let sourceSize = MixerSize(width: Double(sourceTexture.width), height: Double(sourceTexture.height))
             let mode: ScaleMode = isTestPatternChannel(index) ? .stretch : channel.scaleMode
             let baseMapping = AspectLayout.mapping(source: sourceSize, output: contentOutputSize, mode: mode)
+            let destination = baseMapping.destination.flipped(
+                horizontally: outputFlip.flipX,
+                vertically: outputFlip.flipY
+            )
             let mapping = TextureMapping(
-                destination: PixelMapLayout.map(destination: baseMapping.destination, into: activeArea),
+                destination: PixelMapLayout.map(destination: destination, into: activeArea),
                 uv: baseMapping.uv
             )
-            drawQuad(texture: sourceTexture, mapping: mapping, alpha: channel.volume, encoder: encoder)
+            drawQuad(
+                texture: sourceTexture,
+                mapping: mapping,
+                alpha: channel.volume,
+                orientation: outputFlip,
+                encoder: encoder
+            )
         }
 
         encoder.endEncoding()
@@ -607,23 +625,10 @@ final class MixerEngine: NSObject, MTKViewDelegate {
         let right = Float((destination.x + destination.width) * 2.0 - 1.0)
         let top = Float(1.0 - destination.y * 2.0)
         let bottom = Float(1.0 - (destination.y + destination.height) * 2.0)
-        let u0: Float
-        let u1: Float
-        let v0: Float
-        let v1: Float
-
-        switch orientation {
-        case .normal:
-            u0 = Float(uv.x)
-            u1 = Float(uv.x + uv.width)
-            v0 = Float(uv.y)
-            v1 = Float(uv.y + uv.height)
-        case .flippedVertical:
-            u0 = Float(uv.x)
-            u1 = Float(uv.x + uv.width)
-            v0 = Float(uv.y + uv.height)
-            v1 = Float(uv.y)
-        }
+        let u0 = Float(orientation.flipX ? uv.x + uv.width : uv.x)
+        let u1 = Float(orientation.flipX ? uv.x : uv.x + uv.width)
+        let v0 = Float(orientation.flipY ? uv.y + uv.height : uv.y)
+        let v1 = Float(orientation.flipY ? uv.y : uv.y + uv.height)
 
         let vertices = [
             MixerVertex(position: SIMD2<Float>(left, top), uv: SIMD2<Float>(u0, v0)),

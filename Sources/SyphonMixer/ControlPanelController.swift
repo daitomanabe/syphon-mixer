@@ -12,6 +12,7 @@ final class ControlPanelController: NSObject {
     var onChannelScaleModeChanged: ((Int, ScaleMode) -> Void)?
     var onOutputSizeChanged: ((Int, Int) -> Void)?
     var onPixelMapChanged: ((Bool) -> Void)?
+    var onOutputFlipChanged: ((Bool, Bool) -> Void)?
     var onDisplayChanged: ((CGDirectDisplayID?) -> Void)?
     var onFullscreenChanged: ((Bool) -> Void)?
     var onQuit: (() -> Void)?
@@ -27,6 +28,8 @@ final class ControlPanelController: NSObject {
     private let outputLabel = NSTextField(labelWithString: "Output: 1920x1080")
     private let displayPopUp = NSPopUpButton()
     private let pixelMapButton = NSButton(checkboxWithTitle: "PixelMap", target: nil, action: nil)
+    private let flipXButton = NSButton(checkboxWithTitle: "Flip X", target: nil, action: nil)
+    private let flipYButton = NSButton(checkboxWithTitle: "Flip Y", target: nil, action: nil)
     private let fullscreenButton = NSButton(checkboxWithTitle: "Fullscreen", target: nil, action: nil)
     private let displayStatusLabel = NSTextField(labelWithString: "main preview, no external display")
     private let channelPreviewViews: [NSView]
@@ -157,6 +160,19 @@ final class ControlPanelController: NSObject {
         let quitButton = NSButton(title: "Quit", target: self, action: #selector(quit))
         outputRow.addArrangedSubview(quitButton)
         root.addArrangedSubview(outputRow)
+
+        let flipRow = NSStackView()
+        flipRow.orientation = .horizontal
+        flipRow.alignment = .centerY
+        flipRow.spacing = 10.0
+        flipRow.addArrangedSubview(label("Output Flip"))
+        for button in [flipXButton, flipYButton] {
+            button.state = .off
+            button.target = self
+            button.action = #selector(outputFlipChanged)
+            flipRow.addArrangedSubview(button)
+        }
+        root.addArrangedSubview(flipRow)
 
         widthField.widthAnchor.constraint(equalToConstant: 68).isActive = true
         heightField.widthAnchor.constraint(equalToConstant: 68).isActive = true
@@ -329,6 +345,11 @@ final class ControlPanelController: NSObject {
     @objc private func pixelMapChanged(_ sender: NSButton) {
         guard !isUpdating else { return }
         onPixelMapChanged?(sender.state == .on)
+    }
+
+    @objc private func outputFlipChanged() {
+        guard !isUpdating else { return }
+        onOutputFlipChanged?(flipXButton.state == .on, flipYButton.state == .on)
     }
 
     @objc private func displayChanged() {

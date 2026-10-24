@@ -8,6 +8,7 @@
 - Additive compositing for enabled channels
 - Output-size controlled Metal render target
 - Default-off SonyPark0523 PixelMap mode with 1344x672 active area at x=0, y=0 inside 1920x1080
+- Output Flip X / Flip Y for the mixed image, default off, PixelMap area kept in place
 - Final mixed Syphon server named `syphon-mixer Output`
 - Main-display control window plus selectable external fullscreen output window
 - Per-channel live preview panes

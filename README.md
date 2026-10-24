@@ -11,6 +11,7 @@ Native macOS Syphon mixer for four live input servers plus a built-in test patte
 - Additive RGB compositing controlled by each channel fader
 - Output texture size control
 - SonyPark0523 PixelMap output mode, available from the control panel
+- Output Flip X / Flip Y for the mixed image
 - Automatic fit, fill/crop, or stretch mapping to the output texture
 - Final mixed texture published as the `syphon-mixer Output` Syphon server
 - Separate AppKit control window and output window
@@ -30,6 +31,11 @@ PixelMap is off by default. Turning PixelMap on keeps the final output
 canvas at 1920x1080 and maps the mixed content into the 1344x672 active area at
 the top-left origin, x=0, y=0. The inactive area remains black. With PixelMap
 off, the mix maps to the full output canvas.
+
+Output Flip X and Flip Y mirror the mixed image horizontally and vertically in
+both the Syphon output and the output window. Both start off. With PixelMap on,
+the active area stays where it is and only the content inside it is mirrored.
+Channel previews are not flipped.
 
 ## Build
 

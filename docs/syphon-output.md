@@ -25,6 +25,7 @@
 ## Mixing
 
 - Channel faders are applied before additive RGB compositing.
+- Output Flip X / Flip Y mirror the mixed content while compositing, so the published texture and the output window are both mirrored. The PixelMap active area does not move.
 - The published mixed texture uses the already-composited RGB result. Alpha is not a downstream blend contract.
 - Turn a channel off when it should stop consuming Syphon frames. Use `None` when the source should be fully cleared.
 

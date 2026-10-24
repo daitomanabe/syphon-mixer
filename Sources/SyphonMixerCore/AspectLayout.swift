@@ -34,6 +34,15 @@ public struct UnitRect: Equatable, Sendable {
     }
 
     public static let full = UnitRect(x: 0.0, y: 0.0, width: 1.0, height: 1.0)
+
+    public func flipped(horizontally: Bool, vertically: Bool) -> UnitRect {
+        UnitRect(
+            x: horizontally ? 1.0 - x - width : x,
+            y: vertically ? 1.0 - y - height : y,
+            width: width,
+            height: height
+        )
+    }
 }
 
 public struct TextureMapping: Equatable, Sendable {

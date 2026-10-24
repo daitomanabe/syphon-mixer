@@ -64,6 +64,17 @@ final class AspectLayoutTests: XCTestCase {
         XCTAssertEqual(area.height * canvas.height, 672, accuracy: 0.0001)
     }
 
+    func testFlippedMirrorsRectInsideUnitSpace() {
+        let rect = UnitRect(x: 0.1, y: 0.2, width: 0.3, height: 0.4)
+
+        XCTAssertEqual(rect.flipped(horizontally: false, vertically: false), rect)
+        let both = rect.flipped(horizontally: true, vertically: true)
+        XCTAssertEqual(both.x, 0.6, accuracy: 0.0001)
+        XCTAssertEqual(both.y, 0.4, accuracy: 0.0001)
+        XCTAssertEqual(both.width, 0.3, accuracy: 0.0001)
+        XCTAssertEqual(both.height, 0.4, accuracy: 0.0001)
+    }
+
     func testPixelMapDestinationMapsIntoActiveArea() {
         let canvas = MixerSize(width: 1920, height: 1080)
         let area = PixelMapLayout.activeArea(in: canvas)
