@@ -9,12 +9,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var outputController: OutputWindowController?
     private var controlWindow: NSWindow?
     private var refreshTimer: Timer?
+    private var activityToken: NSObjectProtocol?
     private var knownServers: [SyphonServerInfo] = []
     private var selectedServerIDs = Array<String?>(repeating: nil, count: MixerEngine.syphonInputCount)
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         _ = notification
         setupMenu()
+        activityToken = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiatedAllowingIdleSystemSleep, .latencyCritical],
+            reason: "Realtime Syphon mixing and output"
+        )
 
         guard let device = MTLCreateSystemDefaultDevice() else {
             presentFatalError("Metal device is unavailable.")
@@ -56,6 +61,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ = notification
         refreshTimer?.invalidate()
         refreshTimer = nil
+        if let activityToken {
+            ProcessInfo.processInfo.endActivity(activityToken)
+            self.activityToken = nil
+        }
     }
 
     private func wireControlPanel(_ panel: ControlPanelController) {
