@@ -22,8 +22,9 @@ Turning a channel `Off` keeps the selected source in the UI but disconnects the
 client until the channel is turned back on.
 The `TEST` channel starts off by default, outputs a 1920x1080 color bar/grid
 pattern when enabled, and follows the same on/off and fader controls as the
-Syphon channels. The fullscreen toggle is enabled only when an external display
-is detected.
+Syphon channels. The fullscreen toggle is always available. Without an external
+display the output stays a preview window on the main display; once an external
+display is connected, the output goes fullscreen on the selected one.
 
 PixelMap is off by default. Turning PixelMap on keeps the final output
 canvas at 1920x1080 and maps the mixed content into the 1344x672 active area at
