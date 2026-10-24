@@ -75,6 +75,7 @@ final class MixerEngine: NSObject, MTKViewDelegate {
     private let testPatternWidth = 1920
     private let testPatternHeight = 1080
     private var testPatternTexture: MTLTexture?
+    private var finalOutputTexture: MTLTexture?
     private var pixelMapEnabled = false
 
     init(device: MTLDevice, outputWidth: Int = 1920, outputHeight: Int = 1080) throws {
@@ -201,6 +202,7 @@ final class MixerEngine: NSObject, MTKViewDelegate {
         outputWidth = safeWidth
         outputHeight = safeHeight
         outputTexture = nil
+        finalOutputTexture = nil
     }
 
     func setPixelMapEnabled(_ enabled: Bool) {
@@ -275,13 +277,22 @@ final class MixerEngine: NSObject, MTKViewDelegate {
         autoreleasepool {
             guard let drawable = view.currentDrawable,
                   let commandBuffer = commandQueue.makeCommandBuffer(),
-                  let texture = ensureOutputTexture() else {
+                  let texture = ensureOutputTexture(),
+                  let finalTexture = ensureFinalOutputTexture() else {
                 return
             }
 
             encodeMixerPass(to: texture, commandBuffer: commandBuffer)
             encodeTexturePass(
                 from: texture,
+                to: finalTexture,
+                commandBuffer: commandBuffer,
+                mode: .stretch,
+                alpha: 1.0,
+                orientation: .flippedVertical
+            )
+            encodeTexturePass(
+                from: finalTexture,
                 view: view,
                 drawable: drawable,
                 commandBuffer: commandBuffer,
@@ -290,13 +301,13 @@ final class MixerEngine: NSObject, MTKViewDelegate {
             )
 
             syphonServer?.publishFrameTexture(
-                texture,
+                finalTexture,
                 on: commandBuffer,
                 imageRegion: NSRect(
                     x: 0,
                     y: 0,
-                    width: CGFloat(texture.width),
-                    height: CGFloat(texture.height)
+                    width: CGFloat(finalTexture.width),
+                    height: CGFloat(finalTexture.height)
                 ),
                 flipped: false
             )
@@ -321,7 +332,7 @@ final class MixerEngine: NSObject, MTKViewDelegate {
                     commandBuffer: commandBuffer,
                     mode: .fit,
                     alpha: 1.0,
-                    orientation: orientation(forChannel: index)
+                    orientation: .flippedVertical
                 )
             } else {
                 encodeClearPass(view: view, commandBuffer: commandBuffer)
@@ -330,11 +341,6 @@ final class MixerEngine: NSObject, MTKViewDelegate {
             commandBuffer.present(drawable)
             commandBuffer.commit()
         }
-    }
-
-    // Syphon input frames arrive bottom-up; the built-in test pattern is already top-down.
-    private func orientation(forChannel index: Int) -> TextureOrientation {
-        isTestPatternChannel(index) ? .normal : .flippedVertical
     }
 
     private func currentTextureForPreview(channel index: Int) -> MTLTexture? {
@@ -473,6 +479,25 @@ final class MixerEngine: NSObject, MTKViewDelegate {
         return outputTexture
     }
 
+    private func ensureFinalOutputTexture() -> MTLTexture? {
+        if let finalOutputTexture,
+           finalOutputTexture.width == outputWidth,
+           finalOutputTexture.height == outputHeight {
+            return finalOutputTexture
+        }
+
+        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+            pixelFormat: .bgra8Unorm,
+            width: outputWidth,
+            height: outputHeight,
+            mipmapped: false
+        )
+        descriptor.usage = [.renderTarget, .shaderRead]
+        descriptor.storageMode = .private
+        finalOutputTexture = device.makeTexture(descriptor: descriptor)
+        return finalOutputTexture
+    }
+
     private func encodeMixerPass(to texture: MTLTexture, commandBuffer: MTLCommandBuffer) {
         let passDescriptor = MTLRenderPassDescriptor()
         passDescriptor.colorAttachments[0].texture = texture
@@ -500,13 +525,7 @@ final class MixerEngine: NSObject, MTKViewDelegate {
                 destination: PixelMapLayout.map(destination: baseMapping.destination, into: activeArea),
                 uv: baseMapping.uv
             )
-            drawQuad(
-                texture: sourceTexture,
-                mapping: mapping,
-                alpha: channel.volume,
-                orientation: orientation(forChannel: index),
-                encoder: encoder
-            )
+            drawQuad(texture: sourceTexture, mapping: mapping, alpha: channel.volume, encoder: encoder)
         }
 
         encoder.endEncoding()
@@ -531,6 +550,35 @@ final class MixerEngine: NSObject, MTKViewDelegate {
         let mapping = AspectLayout.mapping(
             source: MixerSize(width: Double(texture.width), height: Double(texture.height)),
             output: MixerSize(width: Double(drawable.texture.width), height: Double(drawable.texture.height)),
+            mode: mode
+        )
+        drawQuad(texture: texture, mapping: mapping, alpha: alpha, orientation: orientation, encoder: encoder)
+        encoder.endEncoding()
+    }
+
+    private func encodeTexturePass(
+        from texture: MTLTexture,
+        to target: MTLTexture,
+        commandBuffer: MTLCommandBuffer,
+        mode: ScaleMode,
+        alpha: Float,
+        orientation: TextureOrientation = .normal
+    ) {
+        let passDescriptor = MTLRenderPassDescriptor()
+        passDescriptor.colorAttachments[0].texture = target
+        passDescriptor.colorAttachments[0].loadAction = .clear
+        passDescriptor.colorAttachments[0].storeAction = .store
+        passDescriptor.colorAttachments[0].clearColor = MTLClearColor(red: 0.0, green: 0.0, blue: 0.0, alpha: 1.0)
+
+        guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: passDescriptor) else {
+            return
+        }
+
+        encoder.setRenderPipelineState(pipelineState)
+        encoder.setFragmentSamplerState(samplerState, index: 0)
+        let mapping = AspectLayout.mapping(
+            source: MixerSize(width: Double(texture.width), height: Double(texture.height)),
+            output: MixerSize(width: Double(target.width), height: Double(target.height)),
             mode: mode
         )
         drawQuad(texture: texture, mapping: mapping, alpha: alpha, orientation: orientation, encoder: encoder)
