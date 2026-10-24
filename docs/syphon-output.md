@@ -9,7 +9,7 @@
 
 ## Texture And Timing
 
-- Render all channels into the configured output texture, then publish the final orientation-corrected texture.
+- Render all channels into the configured output texture and publish it unflipped. Syphon input frames arrive bottom-up, so they are flipped vertically as they are composited; the built-in test pattern and the PixelMap active area are already top-down and are drawn as-is.
 - Publish once per output frame on the same Metal command buffer used for the final render.
 - Keep the texture valid until the command buffer commits. Do not release or overwrite the texture before publish is encoded.
 - Avoid CPU readback in the frame loop. Readbacks will quickly break 60 fps output.
