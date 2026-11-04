@@ -39,16 +39,36 @@ Channel previews are not flipped.
 
 ## Build
 
-This repository expects the sibling Syphon framework checkout at:
+syphon-mixer needs the `codex/framebus-metal-sync-ring` branch of
+[daitomanabe/Syphon-Framework](https://github.com/daitomanabe/Syphon-Framework),
+checked out next to this repository as `../Syphon-Framework`. That branch adds
+`SyphonServerOptionFrameChannel`, which upstream Syphon does not have.
+
+### On A New Mac
+
+Install Xcode, then clone both repositories side by side, build the framework
+once, and build the app:
 
 ```bash
-../Syphon-Framework
+git clone -b codex/framebus-metal-sync-ring https://github.com/daitomanabe/Syphon-Framework.git
+git clone https://github.com/daitomanabe/syphon-mixer.git
+xcodebuild -downloadComponent MetalToolchain
+cd Syphon-Framework
+xcodebuild -project Syphon.xcodeproj -target Syphon -configuration Release SYMROOT="$(pwd)/build"
+cd ../syphon-mixer
+./scripts/build_app.sh
+open "build/Syphon Mixer.app"
 ```
 
-The scripts first ask the global `syphon-framework-cache` helper for a reusable
-framework location. They then fall back to `../Syphon-Framework/build/Release`.
-You can also set `SYPHON_FRAMEWORK_PARENT` to any directory that contains
-`Syphon.framework`.
+The Metal toolchain download is needed once per Xcode install. If
+`xcode-select -p` points to the Command Line Tools, prefix the `xcodebuild`
+commands with `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`.
+
+The scripts look for `Syphon.framework` in `SYPHON_FRAMEWORK_PARENT`, then
+`../Syphon-Framework/build/Release`, then the shared cache of the
+`syphon-framework-cache` helper when it is installed.
+
+### Everyday Commands
 
 Build the app bundle:
 
@@ -101,15 +121,3 @@ On the other Mac (macOS 13 or later), unzip, move `Syphon Mixer.app` to
 `/Applications`, and open it. No Syphon install is needed; the framework is
 bundled. Hand over the zip, not the `.app` folder: copying the folder through
 Dropbox or other sync tools can break the framework symlinks and the signature.
-
-## Notes
-
-The local Xcode installation may require the Metal toolchain before rebuilding
-`../Syphon-Framework` from source:
-
-```bash
-xcodebuild -downloadComponent MetalToolchain
-```
-
-When a prebuilt `../Syphon-Framework/build/Release/Syphon.framework` is present,
-the mixer can build and run without rebuilding the framework.
