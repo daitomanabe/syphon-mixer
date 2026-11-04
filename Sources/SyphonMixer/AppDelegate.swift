@@ -117,7 +117,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "syphon-mixer"
+        window.title = "syphon-mixer \(AppInfo.version)"
         window.contentView = contentView
         window.isReleasedWhenClosed = false
         window.makeKeyAndOrderFront(nil)

@@ -71,6 +71,37 @@ Run from SwiftPM during development:
 Syphon output behavior and operational cautions are documented in
 [docs/syphon-output.md](docs/syphon-output.md).
 
+`build_app.sh` builds for this Mac's architecture and signs ad-hoc by default.
+`ARCHS="arm64 x86_64"` builds a universal binary, and `SIGN_IDENTITY` signs with
+a Developer ID identity.
+
+## Distribute To Other Macs
+
+`scripts/package_release.sh` builds a universal (Apple Silicon and Intel) app,
+signs it with the Developer ID Application identity in the keychain, notarizes
+and staples it, and writes `dist/SyphonMixer-<version>-macOS-universal.zip`.
+
+Store the notarization credentials once, with an app-specific password for the
+Apple ID:
+
+```bash
+xcrun notarytool store-credentials syphon-mixer-notary --apple-id <Apple ID> --team-id <Team ID>
+```
+
+Then build the release zip:
+
+```bash
+./scripts/package_release.sh
+```
+
+Bump `version` and `build` in `Sources/SyphonMixer/AppInfo.swift` for each
+release. The version also appears in the control window title.
+
+On the other Mac (macOS 13 or later), unzip, move `Syphon Mixer.app` to
+`/Applications`, and open it. No Syphon install is needed; the framework is
+bundled. Hand over the zip, not the `.app` folder: copying the folder through
+Dropbox or other sync tools can break the framework symlinks and the signature.
+
 ## Notes
 
 The local Xcode installation may require the Metal toolchain before rebuilding
